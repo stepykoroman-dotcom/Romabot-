@@ -17,7 +17,7 @@ GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 
 client = genai.Client(api_key=GEMINI_KEY)
 
-ALLOWED_USERS = set()
+ALLOWED_USERS = {8006800220}
 histories = {}
 
 SYSTEM_PROMPT = """

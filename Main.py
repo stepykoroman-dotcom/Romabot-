@@ -1,4 +1,3 @@
-
 import os
 import logging
 from google import genai
@@ -11,16 +10,15 @@ from telegram.ext import (
     filters
 )
 
+logging.basicConfig(level=logging.INFO)
+
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 
 client = genai.Client(api_key=GEMINI_KEY)
 
-logging.basicConfig(level=logging.INFO)
-
-# Пока список пуст — доступ открыт всем.
-# Позже добавим Telegram ID близких.
 ALLOWED_USERS = set()
+histories = {}
 
 SYSTEM_PROMPT = """
 Ты — ИИ-помощник Ромы.
@@ -30,9 +28,6 @@ SYSTEM_PROMPT = """
 Если спрашивают, честно говори, что ты его ИИ-помощник.
 Не выдумывай факты о Роме.
 """
-
-# Отдельная история для каждого собеседника
-histories = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -44,30 +39,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    if ALLOWED_USERS and user_id not in ALLOWED_USERS:
+    if user_id not in ALLOWED_USERS:
         await update.message.reply_text("У тебя пока нет доступа.")
         return
 
     message = update.message.text
     history = histories.setdefault(user_id, [])
 
-    history.append({"role": "user", "parts": [{"text": message}]})
-
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=history,
-            config={
-                "system_instruction": SYSTEM_PROMPT
-            }
+        response = client.interactions.create(
+            model="gemini-3.8-flash",
+            input=history + [{"role": "user", "content": message}],
+            system_instruction=SYSTEM_PROMPT
         )
 
-        answer = response.text
-        history.append(
-            {"role": "model", "parts": [{"text": answer}]}
-        )
+        answer = response.output_text
 
-        # Ограничиваем размер истории
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": answer})
         histories[user_id] = history[-20:]
 
         await update.message.reply_text(answer)
@@ -80,12 +69,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, chat)
     )
-
     app.run_polling()
 
 if __name__ == "__main__":

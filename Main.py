@@ -1,6 +1,7 @@
 
 import os
 import logging
+from google import genai
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -9,33 +10,34 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from openai import OpenAI
 
 TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-OPENAI_KEY = os.environ["OPENAI_API_KEY"]
+GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 
-client = OpenAI(api_key=OPENAI_KEY)
+client = genai.Client(api_key=GEMINI_KEY)
 
 logging.basicConfig(level=logging.INFO)
 
-# Сюда добавим Telegram ID близких
+# Пока список пуст — доступ открыт всем.
+# Позже добавим Telegram ID близких.
 ALLOWED_USERS = set()
 
 SYSTEM_PROMPT = """
-Ты — цифровой помощник Ромы.
-Общайся естественно, неформально, с юмором.
-Используй русский язык, допускай разговорные выражения
-и мат, если это уместно.
-Не утверждай, что ты сам Рома.
-Если спрашивают, объясняй, что ты его ИИ-помощник.
+Ты — ИИ-помощник Ромы.
+Общайся на русском языке, естественно и неформально.
+Используй юмор и разговорные выражения.
+Не выдавай себя за настоящего Рому.
+Если спрашивают, честно говори, что ты его ИИ-помощник.
 Не выдумывай факты о Роме.
 """
 
+# Отдельная история для каждого собеседника
+histories = {}
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-
     await update.message.reply_text(
-        f"Привет! Я цифровой помощник Ромы.\n"
+        "Привет! Я цифровой помощник Ромы. "
         f"Твой Telegram ID: {user_id}"
     )
 
@@ -47,18 +49,31 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     message = update.message.text
+    history = histories.setdefault(user_id, [])
+
+    history.append({"role": "user", "parts": [{"text": message}]})
 
     try:
-        response = client.responses.create(
-            model="gpt-4.1-mini",
-            instructions=SYSTEM_PROMPT,
-            input=message
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=history,
+            config={
+                "system_instruction": SYSTEM_PROMPT
+            }
         )
 
-        await update.message.reply_text(response.output_text)
+        answer = response.text
+        history.append(
+            {"role": "model", "parts": [{"text": answer}]}
+        )
+
+        # Ограничиваем размер истории
+        histories[user_id] = history[-20:]
+
+        await update.message.reply_text(answer)
 
     except Exception:
-        logging.exception("Ошибка OpenAI")
+        logging.exception("Ошибка Gemini")
         await update.message.reply_text(
             "Что-то пошло не так. Попробуй ещё раз."
         )
@@ -72,7 +87,6 @@ def main():
     )
 
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()

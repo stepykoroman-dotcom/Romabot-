@@ -48,12 +48,12 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         response = client.interactions.create(
-            model="gemini-3.8-flash",
-            input=history + [{"role": "user", "content": message}],
-            system_instruction=SYSTEM_PROMPT
-        )
+    model="gemini-3.8-flash",
+    input=message,
+    system_instruction=SYSTEM_PROMPT
+)
 
-        answer = response.output_text
+answer = response.output_text
 
         history.append({"role": "user", "content": message})
         history.append({"role": "assistant", "content": answer})

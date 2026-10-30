@@ -73,11 +73,8 @@ def main():
 
     app.run_polling(
     bootstrap_retries=-1,
-    timeout=30,
-    read_timeout=30,
-    write_timeout=30,
-    connect_timeout=30,
-    pool_timeout=30
+    timeout=30
+)
 )
 
 

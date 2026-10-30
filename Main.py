@@ -71,7 +71,15 @@ def main():
         MessageHandler(filters.TEXT & ~filters.COMMAND, chat)
     )
 
-    app.run_polling()
+    app.run_polling(
+    bootstrap_retries=-1,
+    timeout=30,
+    read_timeout=30,
+    write_timeout=30,
+    connect_timeout=30,
+    pool_timeout=30
+)
+
 
 if __name__ == "__main__":
     main()

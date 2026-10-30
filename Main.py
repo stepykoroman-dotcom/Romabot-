@@ -71,11 +71,7 @@ def main():
         MessageHandler(filters.TEXT & ~filters.COMMAND, chat)
     )
 
-    app.run_polling(
-    bootstrap_retries=-1,
-    timeout=30
-)
-)
+    app.run_polling()
 
 
 if __name__ == "__main__":
